@@ -9,7 +9,10 @@ import typer
 from jev_lab.contracts import DecisionResult, RunManifest, Split
 from jev_lab.dataset import dataset_sha256, load_dataset, validate_dataset
 from jev_lab.metrics import evaluate
+from jev_lab.providers.base import DecisionProvider
 from jev_lab.providers.deepseek import DeepSeekProvider
+from jev_lab.providers.jev import JevProvider
+from jev_lab.providers.recorded import RecordedProvider
 from jev_lab.providers.rules import RulesProvider
 from jev_lab.reporting import write_report
 from jev_lab.runner import run_experiment
@@ -35,12 +38,22 @@ def validate(path: Path = Path("datasets/routing-v1.yaml")) -> None:
 
 @app.command("run")
 def run(
-    provider: Annotated[Literal["rules", "deepseek"], typer.Option()],
+    provider: Annotated[Literal["rules", "deepseek", "jev", "recorded"], typer.Option()],
     split: Annotated[Split, typer.Option()],
     output_dir: Annotated[Path, typer.Option()] = Path("runs"),
 ) -> None:
     samples = [sample for sample in load_dataset(DATASET) if sample.split == split]
-    selected = RulesProvider() if provider == "rules" else DeepSeekProvider.from_environment()
+    selected: DecisionProvider
+    if provider == "rules":
+        selected = RulesProvider()
+    elif provider == "deepseek":
+        selected = DeepSeekProvider.from_environment()
+    elif provider == "jev":
+        selected = JevProvider.from_environment()
+    else:
+        selected = RecordedProvider(
+            Path("tests/fixtures/recorded/jev-routing.jsonl"), "jev", "synthetic-contract-fixture"
+        )
     timestamp = datetime.now(UTC)
     run_id = f"{timestamp.strftime('%Y%m%dT%H%M%SZ')}-{provider}-{split.value}"
     commit = subprocess.run(

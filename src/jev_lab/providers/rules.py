@@ -21,7 +21,16 @@ class RulesProvider:
             label = RouteLabel.SEARCH
         else:
             label = RouteLabel.HUMAN_REVIEW
-        return DecisionResult(sample_id=sample.sample_id, label=label, probabilities=None,
-            abstained=False, latency_ms=(perf_counter() - started) * 1000,
-            estimated_cost_usd=0.0, provider=self.name, model_version=self.model_version,
-            request_status=RequestStatus.SUCCESS, error=None, run_mode=self.run_mode)
+        return DecisionResult(
+            sample_id=sample.sample_id,
+            label=label,
+            probabilities=None,
+            abstained=False,
+            latency_ms=(perf_counter() - started) * 1000,
+            estimated_cost_usd=0.0,
+            provider=self.name,
+            model_version=self.model_version,
+            request_status=RequestStatus.SUCCESS,
+            error=None,
+            run_mode=self.run_mode,
+        )
