@@ -10,6 +10,7 @@ from jev_lab.contracts import DecisionResult, RunManifest, Split
 from jev_lab.dataset import dataset_sha256, load_dataset, validate_dataset
 from jev_lab.metrics import evaluate
 from jev_lab.providers.rules import RulesProvider
+from jev_lab.reporting import write_report
 from jev_lab.runner import run_experiment
 
 DATASET = Path("datasets/routing-v1.yaml")
@@ -81,3 +82,13 @@ def evaluate_run(run: Annotated[Path, typer.Option(exists=True, file_okay=False)
             }
         )
     )
+
+
+@app.command("report")
+def report_run(
+    run: Annotated[Path, typer.Option(exists=True, file_okay=False)],
+    report_dir: Annotated[Path, typer.Option()] = Path("reports"),
+    public_dir: Annotated[Path, typer.Option()] = Path("public"),
+) -> None:
+    markdown, public_json = write_report(run, report_dir, public_dir)
+    typer.echo(f"report={markdown} public={public_json}")
