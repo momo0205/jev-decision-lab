@@ -9,6 +9,7 @@ import typer
 from jev_lab.contracts import DecisionResult, RunManifest, Split
 from jev_lab.dataset import dataset_sha256, load_dataset, validate_dataset
 from jev_lab.metrics import evaluate
+from jev_lab.providers.deepseek import DeepSeekProvider
 from jev_lab.providers.rules import RulesProvider
 from jev_lab.reporting import write_report
 from jev_lab.runner import run_experiment
@@ -34,12 +35,12 @@ def validate(path: Path = Path("datasets/routing-v1.yaml")) -> None:
 
 @app.command("run")
 def run(
-    provider: Annotated[Literal["rules"], typer.Option()],
+    provider: Annotated[Literal["rules", "deepseek"], typer.Option()],
     split: Annotated[Split, typer.Option()],
     output_dir: Annotated[Path, typer.Option()] = Path("runs"),
 ) -> None:
     samples = [sample for sample in load_dataset(DATASET) if sample.split == split]
-    selected = RulesProvider()
+    selected = RulesProvider() if provider == "rules" else DeepSeekProvider.from_environment()
     timestamp = datetime.now(UTC)
     run_id = f"{timestamp.strftime('%Y%m%dT%H%M%SZ')}-{provider}-{split.value}"
     commit = subprocess.run(
