@@ -1,9 +1,12 @@
 import json
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
 
 from jev_lab.cli import app
+
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 def test_root_help_is_available_offline() -> None:
@@ -13,10 +16,11 @@ def test_root_help_is_available_offline() -> None:
 
 
 def test_run_exposes_provider_and_split_as_options() -> None:
-    result = CliRunner().invoke(app, ["run", "--help"])
+    result = CliRunner().invoke(app, ["run", "--help"], color=True)
     assert result.exit_code == 0
-    assert "--provider" in result.stdout
-    assert "--split" in result.stdout
+    plain_help = ANSI_ESCAPE.sub("", result.stdout)
+    assert "--provider" in plain_help
+    assert "--split" in plain_help
 
 
 def test_rules_workflow_runs_in_process(tmp_path: Path) -> None:
