@@ -21,18 +21,31 @@ def run_experiment(
 ) -> Path:
     run_dir = output_dir / manifest.run_id
     run_dir.mkdir(parents=True, exist_ok=False)
-    _atomic_write(run_dir / "manifest.json", manifest.model_dump_json(indent=2))
     results: list[DecisionResult] = []
     for sample in samples:
         try:
             result = provider.decide(sample)
         except Exception as exc:  # noqa: BLE001 - provider boundary must preserve the run
-            result = DecisionResult(sample_id=sample.sample_id, label=None, probabilities=None,
-                abstained=True, latency_ms=0.0, estimated_cost_usd=None, provider=provider.name,
-                model_version=provider.model_version, request_status=RequestStatus.FAILED,
-                error=type(exc).__name__, run_mode=provider.run_mode)
+            result = DecisionResult(
+                sample_id=sample.sample_id,
+                label=None,
+                probabilities=None,
+                abstained=True,
+                latency_ms=0.0,
+                estimated_cost_usd=None,
+                provider=provider.name,
+                model_version=provider.model_version,
+                request_status=RequestStatus.FAILED,
+                error=type(exc).__name__,
+                run_mode=provider.run_mode,
+            )
         results.append(result)
-    payload = "".join(json.dumps(row.model_dump(mode="json"), ensure_ascii=False) + "\n" for row in results)
+    if results and not any(result.request_status == RequestStatus.SUCCESS for result in results):
+        manifest = manifest.model_copy(update={"run_mode": results[0].run_mode})
+    _atomic_write(run_dir / "manifest.json", manifest.model_dump_json(indent=2))
+    payload = "".join(
+        json.dumps(row.model_dump(mode="json"), ensure_ascii=False) + "\n" for row in results
+    )
     artifact = run_dir / "results.jsonl"
     _atomic_write(artifact, payload)
     return artifact

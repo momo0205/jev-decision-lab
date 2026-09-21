@@ -16,18 +16,49 @@ class JevClient(Protocol):
     ) -> dict[str, object]: ...
 
 
+class RawTypeSafeClient(Protocol):
+    def system_one(self, *, state: dict[str, object], questions: dict[str, object]) -> object: ...
+
+
+class TypeSafeSDKAdapter:
+    """Translate the official system_one response into the lab contract."""
+
+    def __init__(self, client: RawTypeSafeClient) -> None:
+        self.client = client
+
+    def choose(self, state: dict[str, object], question: dict[str, object]) -> dict[str, object]:
+        criteria = question["route"]
+        response = self.client.system_one(
+            state=state,
+            questions={
+                "route": {
+                    "type": "choice",
+                    "instructions": "选择最合适的执行路由",
+                    "criteria": criteria,
+                }
+            },
+        )
+        answer = response.choices["route"]  # type: ignore[attr-defined]
+        return {"choice": answer.choice, "probabilities": getattr(answer, "probabilities", None)}
+
+
 def _default_client_factory(api_key: str) -> JevClient:
     try:
-        from typesafe_sdk import TypeSafeClient  # type: ignore[import-not-found]
+        from typesafe_sdk import RetryPolicy, TypeSafeClient  # type: ignore[import-not-found]
     except ImportError as exc:
         raise ModuleNotFoundError("typesafe-sdk") from exc
-    return TypeSafeClient(api_key=api_key)  # type: ignore[no-any-return]
+    raw_client = TypeSafeClient(
+        api_key=api_key,
+        model="jev",
+        timeout=20.0,
+        retry=RetryPolicy(max_retries=1),
+    )
+    return TypeSafeSDKAdapter(raw_client)
 
 
 class JevProvider:
     name = "jev"
     model_version = "jev-early-access"
-    run_mode = RunMode.LIVE_EVALUATION
 
     def __init__(
         self,
@@ -40,6 +71,10 @@ class JevProvider:
         self.client = client
         self.client_factory = client_factory
         self.max_retries = max_retries
+
+    @property
+    def run_mode(self) -> RunMode:
+        return RunMode.LIVE_EVALUATION if self.api_key else RunMode.OFFLINE_DEVELOPMENT
 
     @classmethod
     def from_environment(

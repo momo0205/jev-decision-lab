@@ -19,6 +19,7 @@ def test_report_names_recorded_replay_without_live_claim(tmp_path: Path) -> None
         dataset_path="data",
         dataset_sha256="hash",
         git_commit="commit",
+        threshold=0.7,
         created_at=datetime.now(UTC),
     )
     (run / "manifest.json").write_text(manifest.model_dump_json())
@@ -44,4 +45,5 @@ def test_report_names_recorded_replay_without_live_claim(tmp_path: Path) -> None
     assert "recorded-replay" in markdown.read_text()
     assert "live-evaluation" not in markdown.read_text()
     assert json.loads(public_json.read_text())["run_mode"] == "recorded-replay"
+    assert json.loads(public_json.read_text())["threshold"] == 0.7
     assert "not available" in markdown.read_text()

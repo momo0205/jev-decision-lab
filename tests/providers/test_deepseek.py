@@ -1,4 +1,4 @@
-from jev_lab.contracts import RequestStatus, RouteLabel, RoutingSample, Split
+from jev_lab.contracts import RequestStatus, RouteLabel, RoutingSample, RunMode, Split
 from jev_lab.providers.deepseek import DeepSeekProvider
 
 
@@ -64,3 +64,17 @@ def test_transport_failure_retries_once_without_leaking_error() -> None:
     result = DeepSeekProvider("key", client=client).decide(sample_with("查天气"))
     assert client.calls == 2
     assert result.error == "transport_error"
+
+
+def test_missing_credentials_are_not_live_evidence(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    result = DeepSeekProvider.from_environment(client=FakeClient({})).decide(sample_with("查天气"))
+    assert result.run_mode == RunMode.OFFLINE_DEVELOPMENT
+
+
+def test_nan_probabilities_fail_closed() -> None:
+    probabilities = {label.value: "NaN" for label in RouteLabel}
+    result = DeepSeekProvider(
+        "key", client=FakeClient({"label": "search", "probabilities": probabilities})
+    ).decide(sample_with("查天气"))
+    assert result.error == "invalid_response"

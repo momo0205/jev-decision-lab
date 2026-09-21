@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from enum import Enum
 from typing import Literal
@@ -79,6 +80,8 @@ class DecisionResult(BaseModel):
         if self.probabilities is not None:
             if not self.probabilities:
                 raise ValueError("probabilities cannot be empty")
+            if any(not math.isfinite(value) for value in self.probabilities.values()):
+                raise ValueError("probabilities must be finite")
             if any(value < 0 or value > 1 for value in self.probabilities.values()):
                 raise ValueError("probabilities must be in [0, 1]")
             if abs(sum(self.probabilities.values()) - 1.0) > 1e-6:

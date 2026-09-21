@@ -1,12 +1,13 @@
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 
 def run_cli(arguments: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [str(Path(".venv/bin/jev-lab")), *arguments],
+        [sys.executable, "-m", "jev_lab.cli", *arguments],
         check=True,
         capture_output=True,
         text=True,

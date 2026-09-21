@@ -80,3 +80,29 @@ def test_high_risk_wrong_automatic_label_is_counted() -> None:
         [sample("s", RouteLabel.HUMAN_REVIEW, "high")], [result("s", RouteLabel.CODE)]
     )
     assert metrics.high_risk_false_approvals == 1
+
+
+def test_threshold_changes_selective_metrics_not_baseline_metrics() -> None:
+    samples = [sample("a", RouteLabel.SEARCH), sample("b", RouteLabel.CODE)]
+    strong = {
+        RouteLabel.SEARCH: 0.97,
+        RouteLabel.CODE: 0.01,
+        RouteLabel.DATABASE: 0.01,
+        RouteLabel.HUMAN_REVIEW: 0.01,
+    }
+    weak_wrong = {
+        RouteLabel.SEARCH: 0.4,
+        RouteLabel.CODE: 0.3,
+        RouteLabel.DATABASE: 0.2,
+        RouteLabel.HUMAN_REVIEW: 0.1,
+    }
+    results = [
+        result("a", RouteLabel.SEARCH, probabilities=strong),
+        result("b", RouteLabel.SEARCH, probabilities=weak_wrong),
+    ]
+    baseline = evaluate(samples, results)
+    thresholded = evaluate(samples, results, threshold=0.8)
+    assert thresholded.accuracy == baseline.accuracy == 0.5
+    assert thresholded.brier_score == baseline.brier_score
+    assert thresholded.selective_accuracy == 1.0
+    assert thresholded.coverage == 0.5

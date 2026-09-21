@@ -56,6 +56,7 @@ def evaluate(
     by_id = {result.sample_id: result for result in results}
     labels = [label.value for label in RouteLabel]
     confusion = {expected: {actual: 0 for actual in labels} for expected in labels}
+    decided: list[tuple[RoutingSample, DecisionResult]] = []
     accepted: list[tuple[RoutingSample, DecisionResult]] = []
     successes = 0
     high_risk_false_approvals = 0
@@ -67,10 +68,9 @@ def evaluate(
             continue
         successes += 1
         confidence = max(current.probabilities.values()) if current.probabilities else None
-        thresholded = threshold is not None and (confidence is None or confidence < threshold)
-        if current.abstained or current.label is None or thresholded:
+        if current.abstained or current.label is None:
             continue
-        accepted.append((sample, current))
+        decided.append((sample, current))
         confusion[sample.expected.value][current.label.value] += 1
         if (
             sample.risk == "high"
@@ -80,9 +80,14 @@ def evaluate(
             high_risk_false_approvals += 1
         if current.probabilities is not None and set(current.probabilities) == set(RouteLabel):
             probability_rows.append((sample, current))
+        thresholded = threshold is not None and (confidence is None or confidence < threshold)
+        if not thresholded:
+            accepted.append((sample, current))
 
-    correct = sum(result.label in sample.acceptable for sample, result in accepted)
-    accuracy = correct / len(accepted) if accepted else None
+    baseline_correct = sum(result.label in sample.acceptable for sample, result in decided)
+    accuracy = baseline_correct / len(decided) if decided else None
+    accepted_correct = sum(result.label in sample.acceptable for sample, result in accepted)
+    selective_accuracy = accepted_correct / len(accepted) if accepted else None
     per_class: dict[str, ClassMetrics] = {}
     for label in labels:
         true_positive = confusion[label][label]
@@ -131,7 +136,7 @@ def evaluate(
     return EvaluationMetrics(
         accuracy=accuracy,
         coverage=len(accepted) / len(samples) if samples else 0.0,
-        selective_accuracy=accuracy,
+        selective_accuracy=selective_accuracy,
         success_rate=successes / len(samples) if samples else 0.0,
         confusion_matrix=confusion,
         per_class=per_class,

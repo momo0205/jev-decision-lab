@@ -76,3 +76,20 @@ def test_routing_sample_rejects_duplicate_acceptable_labels() -> None:
             source="synthetic",
             split=Split.DEV,
         )
+
+
+def test_decision_result_rejects_non_finite_probabilities() -> None:
+    with pytest.raises(ValidationError, match="finite"):
+        DecisionResult(
+            sample_id="s1",
+            label=RouteLabel.SEARCH,
+            probabilities={label: float("nan") for label in RouteLabel},
+            abstained=False,
+            latency_ms=1,
+            estimated_cost_usd=None,
+            provider="remote",
+            model_version="v1",
+            request_status=RequestStatus.SUCCESS,
+            error=None,
+            run_mode=RunMode.LIVE_EVALUATION,
+        )

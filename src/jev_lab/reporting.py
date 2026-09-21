@@ -34,6 +34,7 @@ def write_report(run_dir: Path, report_dir: Path, public_dir: Path) -> tuple[Pat
 
 - dataset sha256: {manifest.dataset_sha256}
 - split: {manifest.split.value}
+- decision threshold: {_display(manifest.threshold)}
 
 ## Decision quality
 
@@ -72,6 +73,7 @@ This report describes `{manifest.run_mode.value}` evidence only. It does not aut
         "dataset_sha256": manifest.dataset_sha256,
         "git_commit": manifest.git_commit,
         "created_at": manifest.created_at.isoformat(),
+        "threshold": manifest.threshold,
         "metrics": metrics.model_dump(mode="json"),
         "failure_categories": dict(failures),
     }

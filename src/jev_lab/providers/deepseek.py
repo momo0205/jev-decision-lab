@@ -40,7 +40,6 @@ class HttpxDeepSeekClient:
 
 class DeepSeekProvider:
     name = "deepseek"
-    run_mode = RunMode.LIVE_EVALUATION
 
     def __init__(
         self,
@@ -59,6 +58,10 @@ class DeepSeekProvider:
         )
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
+
+    @property
+    def run_mode(self) -> RunMode:
+        return RunMode.LIVE_EVALUATION if self.api_key else RunMode.OFFLINE_DEVELOPMENT
 
     @classmethod
     def from_environment(cls, client: CompletionClient | None = None) -> DeepSeekProvider:

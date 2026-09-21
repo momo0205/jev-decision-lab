@@ -21,6 +21,8 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -m 'not live_deepseek and not live_jev'
 ```
 
+远程 Provider 可通过 `--threshold 0.75` 固定拒答阈值；该值会写入 manifest、完整报告和公开摘要。阈值只影响 coverage 与 selective accuracy，不改写未筛选的 baseline accuracy 或 Brier Score。
+
 运行模式必须如实解释：
 
 - `offline-development`：规则和本地逻辑，不包含模型调用；

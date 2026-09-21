@@ -41,15 +41,24 @@ def run(
     provider: Annotated[Literal["rules", "deepseek", "jev", "recorded"], typer.Option()],
     split: Annotated[Split, typer.Option()],
     output_dir: Annotated[Path, typer.Option()] = Path("runs"),
+    threshold: Annotated[float | None, typer.Option(min=0.0, max=1.0)] = None,
 ) -> None:
-    samples = [sample for sample in load_dataset(DATASET) if sample.split == split]
+    complete_dataset = load_dataset(DATASET)
+    validate_dataset(complete_dataset)
+    samples = [sample for sample in complete_dataset if sample.split == split]
     selected: DecisionProvider
     if provider == "rules":
         selected = RulesProvider()
     elif provider == "deepseek":
-        selected = DeepSeekProvider.from_environment()
+        deepseek = DeepSeekProvider.from_environment()
+        selected = deepseek
+        if deepseek.api_key is None:
+            typer.echo("DEEPSEEK_API_KEY 未配置：本次只记录 skipped，不产生 live evidence")
     elif provider == "jev":
-        selected = JevProvider.from_environment()
+        jev = JevProvider.from_environment()
+        selected = jev
+        if jev.api_key is None:
+            typer.echo("TYPESAFE_API_KEY 未配置：本次只记录 skipped，不产生 live evidence")
     else:
         selected = RecordedProvider(
             Path("tests/fixtures/recorded/jev-routing.jsonl"), "jev", "synthetic-contract-fixture"
@@ -68,6 +77,7 @@ def run(
         dataset_path=str(DATASET),
         dataset_sha256=dataset_sha256(DATASET),
         git_commit=commit,
+        threshold=threshold,
         created_at=timestamp,
     )
     artifact = run_experiment(selected, samples, output_dir, manifest)
@@ -106,3 +116,7 @@ def report_run(
 ) -> None:
     markdown, public_json = write_report(run, report_dir, public_dir)
     typer.echo(f"report={markdown} public={public_json}")
+
+
+if __name__ == "__main__":
+    app()

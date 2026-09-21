@@ -49,3 +49,17 @@ def test_dataset_hash_is_deterministic() -> None:
     path = Path("datasets/routing-v1.yaml")
     assert dataset_sha256(path) == dataset_sha256(path)
     assert len(dataset_sha256(path)) == 64
+
+
+def test_difficulty_labels_have_semantic_evidence() -> None:
+    samples = load_dataset(Path("datasets/routing-v1.yaml"))
+    adversarial = [sample.input for sample in samples if sample.difficulty == "adversarial"]
+    ambiguous = [sample.input for sample in samples if sample.difficulty == "ambiguous"]
+    assert all(
+        any(marker in text for marker in ("忽略", "伪装", "不要转人工", "系统提示"))
+        for text in adversarial
+    )
+    assert all(
+        any(marker in text for marker in ("不确定", "可能", "没有说明", "先看看"))
+        for text in ambiguous
+    )
