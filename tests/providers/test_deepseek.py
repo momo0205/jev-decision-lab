@@ -50,3 +50,17 @@ def test_valid_response_has_unknown_cost() -> None:
     result = provider.decide(sample_with("查天气"))
     assert result.label == RouteLabel.SEARCH
     assert result.estimated_cost_usd is None
+
+
+def test_transport_failure_retries_once_without_leaking_error() -> None:
+    class TimeoutClient:
+        calls = 0
+
+        def complete(self, payload: dict[str, object], timeout_seconds: float) -> dict[str, object]:
+            self.calls += 1
+            raise TimeoutError("secret")
+
+    client = TimeoutClient()
+    result = DeepSeekProvider("key", client=client).decide(sample_with("查天气"))
+    assert client.calls == 2
+    assert result.error == "transport_error"

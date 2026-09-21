@@ -33,3 +33,13 @@ def test_jev_invalid_probability_map_fails_closed() -> None:
 
     result = JevProvider("key", client=Client()).decide(sample_with("查天气"))
     assert result.error == "invalid_response"
+
+
+def test_jev_valid_choice_is_normalized() -> None:
+    class Client:
+        def choose(self, state, question):  # type: ignore[no-untyped-def]
+            return {"choice": "search"}
+
+    result = JevProvider("key", client=Client()).decide(sample_with("查天气"))
+    assert result.label == RouteLabel.SEARCH
+    assert result.estimated_cost_usd is None

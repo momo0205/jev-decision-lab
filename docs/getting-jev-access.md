@@ -5,7 +5,8 @@
 先通过 TypeSafe AI 官方渠道申请 Jev early access。获得密钥后，只在本地被 Git 忽略的 `.env` 或当前 shell 中配置：
 
 ```bash
-export TYPESAFE_API_KEY="[REDACTED]"
+read -s TYPESAFE_API_KEY
+export TYPESAFE_API_KEY
 .venv/bin/python -m pip install -e '.[jev]'
 ```
 

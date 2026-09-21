@@ -60,3 +60,19 @@ def test_decision_result_rejects_invalid_probability_sum() -> None:
             error=None,
             run_mode=RunMode.LIVE_EVALUATION,
         )
+
+
+def test_routing_sample_rejects_duplicate_acceptable_labels() -> None:
+    with pytest.raises(ValidationError, match="acceptable labels must be unique"):
+        RoutingSample(
+            sample_id="s1",
+            family_id="f1",
+            input="查资料",
+            expected=RouteLabel.SEARCH,
+            acceptable=[RouteLabel.SEARCH, RouteLabel.SEARCH],
+            risk="low",
+            difficulty="clear",
+            rationale="需要搜索",
+            source="synthetic",
+            split=Split.DEV,
+        )
