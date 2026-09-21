@@ -1,3 +1,4 @@
+import json
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -5,8 +6,9 @@ from typing import Annotated, Literal
 
 import typer
 
-from jev_lab.contracts import RunManifest, Split
+from jev_lab.contracts import DecisionResult, RunManifest, Split
 from jev_lab.dataset import dataset_sha256, load_dataset, validate_dataset
+from jev_lab.metrics import evaluate
 from jev_lab.providers.rules import RulesProvider
 from jev_lab.runner import run_experiment
 
@@ -39,11 +41,43 @@ def run(
     selected = RulesProvider()
     timestamp = datetime.now(UTC)
     run_id = f"{timestamp.strftime('%Y%m%dT%H%M%SZ')}-{provider}-{split.value}"
-    commit = subprocess.run(["git", "rev-parse", "HEAD"], check=True, capture_output=True,
-                            text=True).stdout.strip()
-    manifest = RunManifest(run_id=run_id, provider=selected.name,
-        model_version=selected.model_version, run_mode=selected.run_mode, split=split,
-        dataset_path=str(DATASET), dataset_sha256=dataset_sha256(DATASET), git_commit=commit,
-        created_at=timestamp)
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True
+    ).stdout.strip()
+    manifest = RunManifest(
+        run_id=run_id,
+        provider=selected.name,
+        model_version=selected.model_version,
+        run_mode=selected.run_mode,
+        split=split,
+        dataset_path=str(DATASET),
+        dataset_sha256=dataset_sha256(DATASET),
+        git_commit=commit,
+        created_at=timestamp,
+    )
     artifact = run_experiment(selected, samples, output_dir, manifest)
     typer.echo(str(artifact.parent))
+
+
+@app.command("evaluate")
+def evaluate_run(run: Annotated[Path, typer.Option(exists=True, file_okay=False)]) -> None:
+    manifest = RunManifest.model_validate_json((run / "manifest.json").read_text())
+    dataset_path = Path(manifest.dataset_path)
+    if dataset_sha256(dataset_path) != manifest.dataset_sha256:
+        raise typer.BadParameter("dataset hash mismatch")
+    samples = [sample for sample in load_dataset(dataset_path) if sample.split == manifest.split]
+    results = [
+        DecisionResult.model_validate_json(line)
+        for line in (run / "results.jsonl").read_text().splitlines()
+    ]
+    metrics = evaluate(samples, results, manifest.threshold)
+    (run / "metrics.json").write_text(metrics.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(
+        json.dumps(
+            {
+                "accuracy": metrics.accuracy,
+                "coverage": metrics.coverage,
+                "success_rate": metrics.success_rate,
+            }
+        )
+    )
