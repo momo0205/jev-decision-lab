@@ -109,7 +109,7 @@ def test_artifact_writer_refuses_existing_directory(tmp_path: Path) -> None:
 
 - [ ] **Step 2: Run the focused tests and verify RED**
 
-Run: `.venv/bin/pytest tests/training/test_artifacts.py -v`  
+Run: `.venv/bin/pytest tests/training/test_artifacts.py -v`
 Expected: collection fails because `jev_lab.training.artifacts` does not exist.
 
 - [ ] **Step 3: Implement the manifest and verified persistence**
@@ -202,7 +202,7 @@ Also test empty input, missing label classes, duplicate sample IDs and too few f
 
 - [ ] **Step 2: Run the focused tests and verify RED**
 
-Run: `.venv/bin/pytest tests/training/test_classifier.py -v`  
+Run: `.venv/bin/pytest tests/training/test_classifier_training.py -v`
 Expected: FAIL because the training functions do not exist.
 
 - [ ] **Step 3: Implement the fixed baseline**
@@ -285,7 +285,7 @@ Also test missing class, duplicate class, non-finite probability, prediction exc
 
 - [ ] **Step 2: Run the provider tests and verify RED**
 
-Run: `.venv/bin/pytest tests/providers/test_classifier.py -v`  
+Run: `.venv/bin/pytest tests/providers/test_classifier.py -v`
 Expected: FAIL because `ClassifierProvider` does not exist.
 
 - [ ] **Step 3: Implement the provider**
@@ -361,7 +361,7 @@ Add an end-to-end test that trains on the real dev split, runs on calibration, e
 
 - [ ] **Step 2: Run the new CLI tests and verify RED**
 
-Run: `.venv/bin/pytest tests/test_classifier_cli.py tests/test_cli.py -v`  
+Run: `.venv/bin/pytest tests/test_classifier_cli.py tests/test_cli.py -v`
 Expected: FAIL because `train` and `tfidf-logreg` are not registered.
 
 - [ ] **Step 3: Implement CLI wiring and provenance fields**
@@ -429,7 +429,7 @@ Also assert comparisons reject different dataset hashes or splits, so unrelated 
 
 - [ ] **Step 2: Run focused tests and verify RED**
 
-Run: `.venv/bin/pytest tests/test_reporting.py tests/test_comparison.py -v`  
+Run: `.venv/bin/pytest tests/test_reporting.py tests/test_comparison.py -v`
 Expected: FAIL because provenance display and comparison module are absent.
 
 - [ ] **Step 3: Implement provenance display and strict comparisons**
