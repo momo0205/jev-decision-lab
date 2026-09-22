@@ -57,6 +57,13 @@ def write_report(run_dir: Path, report_dir: Path, public_dir: Path) -> tuple[Pat
 - P95 latency ms: {_display(metrics.p95_latency_ms)}
 - known total cost USD: {_display(metrics.total_known_cost_usd)}
 
+## Local model provenance
+
+- model artifact sha256: {_display(manifest.model_artifact_sha256)}
+- training samples: {_display(manifest.training_sample_count)}
+- training duration ms: {_display(manifest.training_duration_ms)}
+- model size bytes: {_display(manifest.model_size_bytes)}
+
 ## Failures
 
 {json.dumps(failures, ensure_ascii=False, sort_keys=True)}
@@ -76,6 +83,12 @@ This report describes `{manifest.run_mode.value}` evidence only. It does not aut
         "threshold": manifest.threshold,
         "metrics": metrics.model_dump(mode="json"),
         "failure_categories": dict(failures),
+        "local_model_provenance": {
+            "model_artifact_sha256": manifest.model_artifact_sha256,
+            "training_sample_count": manifest.training_sample_count,
+            "training_duration_ms": manifest.training_duration_ms,
+            "model_size_bytes": manifest.model_size_bytes,
+        },
     }
     assert_public_safe(public_payload)
     report_dir.mkdir(parents=True, exist_ok=True)
