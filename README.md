@@ -35,6 +35,24 @@ python3 -m venv .venv
 
 DeepSeek 使用本地环境变量 `DEEPSEEK_API_KEY`。Jev 的访问申请、`TYPESAFE_API_KEY`、可选 SDK 和显式 live smoke test 见 [Jev 访问指南](docs/getting-jev-access.md)。密钥缺失时，Provider 返回明确的 `skipped`，不会阻塞离线流程。
 
+## 专用分类器基线
+
+分类器依赖是可选的，不影响默认离线流程：
+
+```bash
+.venv/bin/python -m pip install -e '.[dev,classifier]'
+.venv/bin/jev-lab train \
+  --provider tfidf-logreg \
+  --split dev \
+  --model-id routing-v1-s42
+.venv/bin/jev-lab run \
+  --provider tfidf-logreg \
+  --model artifacts/routing-v1-s42 \
+  --split calibration
+```
+
+训练命令内部使用按 `family_id` 分组的三折交叉验证，只把它作为开发稳定性证据。分类器随后使用全部 `dev` 样本训练；`calibration` 只用于选择拒答阈值。规则、特征、模型、Prompt、Criteria 和阈值全部冻结后，才能运行保留 `test`。开发集交叉验证、校准结果和保留测试结果不得混为同一种证据。
+
 ## 产物边界
 
 - `runs/`：本地原始运行记录，默认被 Git 忽略；
