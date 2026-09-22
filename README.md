@@ -64,3 +64,10 @@ API Key、私有样本、原始 live 响应、request ID 和完整 trace 不得�
 ## 研究与安全声明
 
 本项目是研究和模拟工具，不构成投资建议，不连接券商，不自动下单，也不执行模型选择的代码、数据库、搜索或任何其他工具。它不是通用 Agent Harness，也不是生产授权系统；高风险动作必须由人工复核。
+
+## 研究协议
+
+- [路由标签变化成本实验](docs/research/classifier-change-cost-protocol.md)
+- [Jev 与分类器专题源稿](docs/research/jev-vs-classifier-draft.md)
+
+这些文件是 Agent 工程笔记网站的人工发布素材，不是自动部署通道。网站上的实测数据仍需逐项核对运行 ID、代码 commit 和数据哈希。
