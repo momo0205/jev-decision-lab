@@ -99,4 +99,8 @@ class RunManifest(BaseModel):
     dataset_sha256: str
     git_commit: str
     threshold: float | None = Field(default=None, ge=0, le=1)
+    model_artifact_sha256: str | None = None
+    training_sample_count: int | None = Field(default=None, ge=1)
+    training_duration_ms: float | None = Field(default=None, ge=0)
+    model_size_bytes: int | None = Field(default=None, ge=1)
     created_at: datetime
