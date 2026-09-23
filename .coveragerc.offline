@@ -1,0 +1,3 @@
+[run]
+omit =
+    src/jev_lab/training/*

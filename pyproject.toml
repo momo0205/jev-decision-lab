@@ -17,6 +17,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "mypy>=1.11", "types-PyYAML>=6"]
 jev = ["typesafe-sdk"]
+classifier = [
+  "scikit-learn>=1.5,<2",
+  "joblib>=1.4,<2",
+]
 
 [project.scripts]
 jev-lab = "jev_lab.cli:app"
@@ -29,6 +33,7 @@ testpaths = ["tests"]
 markers = [
   "live_deepseek: requires a real DeepSeek credential and network",
   "live_jev: requires a real Jev credential and network",
+  "classifier: requires optional classifier dependencies",
 ]
 
 [tool.ruff]

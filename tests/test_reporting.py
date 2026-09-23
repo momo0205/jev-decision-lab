@@ -20,6 +20,10 @@ def test_report_names_recorded_replay_without_live_claim(tmp_path: Path) -> None
         dataset_sha256="hash",
         git_commit="commit",
         threshold=0.7,
+        model_artifact_sha256="artifact-hash",
+        training_sample_count=60,
+        training_duration_ms=12.5,
+        model_size_bytes=2048,
         created_at=datetime.now(UTC),
     )
     (run / "manifest.json").write_text(manifest.model_dump_json())
@@ -47,3 +51,6 @@ def test_report_names_recorded_replay_without_live_claim(tmp_path: Path) -> None
     assert json.loads(public_json.read_text())["run_mode"] == "recorded-replay"
     assert json.loads(public_json.read_text())["threshold"] == 0.7
     assert "not available" in markdown.read_text()
+    assert "artifact-hash" in markdown.read_text()
+    public = json.loads(public_json.read_text())
+    assert public["local_model_provenance"]["training_sample_count"] == 60

@@ -10,12 +10,14 @@ from jev_lab.contracts import DecisionResult, RunManifest, Split
 from jev_lab.dataset import dataset_sha256, load_dataset, validate_dataset
 from jev_lab.metrics import evaluate
 from jev_lab.providers.base import DecisionProvider
+from jev_lab.providers.classifier import ClassifierProvider
 from jev_lab.providers.deepseek import DeepSeekProvider
 from jev_lab.providers.jev import JevProvider
 from jev_lab.providers.recorded import RecordedProvider
 from jev_lab.providers.rules import RulesProvider
 from jev_lab.reporting import write_report
 from jev_lab.runner import run_experiment
+from jev_lab.training.artifacts import ClassifierTrainingManifest
 
 DATASET = Path("datasets/routing-v1.yaml")
 
@@ -38,15 +40,22 @@ def validate(path: Path = Path("datasets/routing-v1.yaml")) -> None:
 
 @app.command("run")
 def run(
-    provider: Annotated[Literal["rules", "deepseek", "jev", "recorded"], typer.Option()],
+    provider: Annotated[
+        Literal["rules", "deepseek", "jev", "recorded", "tfidf-logreg"], typer.Option()
+    ],
     split: Annotated[Split, typer.Option()],
     output_dir: Annotated[Path, typer.Option()] = Path("runs"),
     threshold: Annotated[float | None, typer.Option(min=0.0, max=1.0)] = None,
+    model: Annotated[
+        Path | None,
+        typer.Option(help="Trusted local classifier artifact only; untrusted joblib can execute code."),
+    ] = None,
 ) -> None:
     complete_dataset = load_dataset(DATASET)
     validate_dataset(complete_dataset)
     samples = [sample for sample in complete_dataset if sample.split == split]
     selected: DecisionProvider
+    classifier_manifest: ClassifierTrainingManifest | None = None
     if provider == "rules":
         selected = RulesProvider()
     elif provider == "deepseek":
@@ -59,10 +68,26 @@ def run(
         selected = jev
         if jev.api_key is None:
             typer.echo("TYPESAFE_API_KEY 未配置：本次只记录 skipped，不产生 live evidence")
-    else:
+    elif provider == "recorded":
         selected = RecordedProvider(
             Path("tests/fixtures/recorded/jev-routing.jsonl"), "jev", "synthetic-contract-fixture"
         )
+    else:
+        if model is None:
+            raise typer.BadParameter("--model is required for tfidf-logreg")
+        classifier = ClassifierProvider.from_artifact(model)
+        selected = classifier
+        classifier_manifest = classifier.manifest
+        current_hash = dataset_sha256(DATASET)
+        dev_samples = [sample for sample in complete_dataset if sample.split == Split.DEV]
+        if classifier_manifest.dataset_sha256 != current_hash:
+            raise typer.BadParameter("classifier artifact dataset hash does not match current dataset")
+        if set(classifier_manifest.training_sample_ids) != {
+            sample.sample_id for sample in dev_samples
+        } or set(classifier_manifest.training_family_ids) != {
+            sample.family_id for sample in dev_samples
+        }:
+            raise typer.BadParameter("classifier artifact training boundary does not match dev split")
     timestamp = datetime.now(UTC)
     run_id = f"{timestamp.strftime('%Y%m%dT%H%M%SZ')}-{provider}-{split.value}"
     commit = subprocess.run(
@@ -78,10 +103,51 @@ def run(
         dataset_sha256=dataset_sha256(DATASET),
         git_commit=commit,
         threshold=threshold,
+        model_artifact_sha256=(classifier_manifest.model_sha256 if classifier_manifest else None),
+        training_sample_count=(
+            len(classifier_manifest.training_sample_ids) if classifier_manifest else None
+        ),
+        training_duration_ms=(
+            classifier_manifest.training_duration_ms if classifier_manifest else None
+        ),
+        model_size_bytes=(classifier_manifest.model_size_bytes if classifier_manifest else None),
         created_at=timestamp,
     )
     artifact = run_experiment(selected, samples, output_dir, manifest)
     typer.echo(str(artifact.parent))
+
+
+@app.command("train")
+def train(
+    provider: Annotated[Literal["tfidf-logreg"], typer.Option()],
+    split: Annotated[Split, typer.Option()] = Split.DEV,
+    output_dir: Annotated[Path, typer.Option()] = Path("artifacts"),
+    model_id: Annotated[str, typer.Option()] = "routing-v1-s42",
+    seed: Annotated[int, typer.Option()] = 42,
+    folds: Annotated[int, typer.Option(min=2)] = 3,
+) -> None:
+    if split != Split.DEV:
+        raise typer.BadParameter("classifier training accepts dev split only")
+    from jev_lab.training.classifier import cross_validate_classifier, train_classifier
+
+    complete_dataset = load_dataset(DATASET)
+    validate_dataset(complete_dataset)
+    samples = [sample for sample in complete_dataset if sample.split == split]
+    cross_validation = cross_validate_classifier(samples, folds=folds, random_seed=seed)
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True
+    ).stdout.strip()
+    artifact = train_classifier(samples, DATASET, output_dir, model_id, commit, seed)
+    typer.echo(
+        json.dumps(
+            {
+                "fold_count": cross_validation.fold_count,
+                "mean_accuracy": cross_validation.mean_accuracy,
+                "standard_deviation": cross_validation.standard_deviation,
+            }
+        )
+    )
+    typer.echo(str(artifact))
 
 
 @app.command("evaluate")
