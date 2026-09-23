@@ -38,7 +38,7 @@ src/jev_lab/
 tests/
 ├── training/
 │   ├── test_artifacts.py
-│   └── test_classifier.py
+│   └── test_classifier_training.py
 ├── providers/test_classifier.py
 ├── test_classifier_cli.py
 └── test_reporting.py
@@ -167,7 +167,7 @@ git commit -m "feat: add verified classifier artifacts"
 
 **Files:**
 - Create: `src/jev_lab/training/classifier.py`
-- Create: `tests/training/test_classifier.py`
+- Create: `tests/training/test_classifier_training.py`
 
 **Interfaces:**
 - Consumes: `write_artifact`, `ClassifierTrainingManifest`, `RoutingSample`, `Split`, `dataset_sha256`.
@@ -244,7 +244,7 @@ Expected: all commands pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/jev_lab/training/classifier.py tests/training/test_classifier.py
+git add src/jev_lab/training/classifier.py tests/training/test_classifier_training.py
 git commit -m "feat: train grouped offline classifier baseline"
 ```
 
@@ -463,7 +463,14 @@ git commit -m "feat: compare decision providers with training provenance"
 
 **Files:**
 - Modify: `.github/workflows/ci.yml`
+- Create: `.coveragerc.offline`
+- Create: `.coveragerc.classifier`
+- Modify: `pyproject.toml`
 - Modify: `tests/test_offline_acceptance.py`
+- Create: `tests/test_ci_config.py`
+- Modify: `tests/test_classifier_cli.py`
+- Modify: `tests/training/test_classifier_training.py`
+- Modify: `tests/training/test_artifacts.py`
 - Modify: `README.md`
 
 **Interfaces:**
@@ -476,10 +483,12 @@ Add a subprocess assertion that imports and runs rule CLI functionality while bl
 
 - [ ] **Step 2: Run the default offline suite before CI changes**
 
+Training-module tests must call `pytest.importorskip("sklearn")` before importing optional training code; artifact-persistence tests must likewise skip on missing `joblib`. Mark those tests `classifier`. This keeps pytest collection usable in the base `[dev]` environment. Keep classifier CLI integration tests marked; also retain dependency-free fake-dispatch tests for early validation and lazy CLI wiring.
+
 Run:
 
 ```bash
-.venv/bin/pytest -m 'not live_deepseek and not live_jev' -q
+.venv/bin/pytest -m 'not live_deepseek and not live_jev and not classifier' -q
 ```
 
 Expected: all selected tests pass with existing dependencies.
@@ -498,13 +507,13 @@ classifier:
         python-version: "3.11"
         cache: pip
     - run: python -m pip install -e '.[dev,classifier]'
-    - run: pytest tests/training tests/providers/test_classifier.py tests/test_classifier_cli.py
+    - run: pytest -m 'not live_deepseek and not live_jev' --cov=jev_lab --cov-config=.coveragerc.classifier --cov-fail-under=90
     - run: |
         jev-lab train --provider tfidf-logreg --split dev --model-id ci-model --output-dir artifacts
         jev-lab run --provider tfidf-logreg --model artifacts/ci-model --split calibration --output-dir runs
 ```
 
-Keep the existing `offline` job on `.[dev]`; do not add secrets or live markers.
+Keep the existing `offline` job on `.[dev]`; do not add secrets or live markers. The offline job excludes optional classifier tests and uses `.coveragerc.offline` to measure the base-install surface without counting modules that cannot be imported without the extra. The classifier job runs the full non-live suite and measures all `jev_lab` modules using `.coveragerc.classifier`.
 
 - [ ] **Step 4: Document the exact local workflow**
 
@@ -525,9 +534,9 @@ Run:
 ```bash
 .venv/bin/ruff check .
 .venv/bin/mypy src
-.venv/bin/pytest -m 'not live_deepseek and not live_jev' --cov=jev_lab --cov-fail-under=90
+PYTHONPATH=src ../../.venv/bin/pytest -m 'not live_deepseek and not live_jev and not classifier' --cov=jev_lab --cov-config=.coveragerc.offline --cov-fail-under=90
 .venv/bin/jev-lab dataset validate
-.venv/bin/pytest tests/training tests/providers/test_classifier.py tests/test_classifier_cli.py
+.venv/bin/pytest -m 'not live_deepseek and not live_jev' --cov=jev_lab --cov-config=.coveragerc.classifier --cov-fail-under=90
 ```
 
 Expected: all commands pass and coverage remains at least 90%.
@@ -612,11 +621,12 @@ git commit -m "docs: preregister classifier comparison study"
 .venv/bin/python -m pip install -e '.[dev,classifier]'
 .venv/bin/ruff check .
 .venv/bin/mypy src
-.venv/bin/pytest -m 'not live_deepseek and not live_jev' --cov=jev_lab --cov-fail-under=90
+PYTHONPATH=src ../../.venv/bin/pytest -m 'not live_deepseek and not live_jev and not classifier' --cov=jev_lab --cov-config=.coveragerc.offline --cov-fail-under=90
+.venv/bin/pytest -m 'not live_deepseek and not live_jev' --cov=jev_lab --cov-config=.coveragerc.classifier --cov-fail-under=90
 .venv/bin/jev-lab dataset validate
 ```
 
-Expected: zero failures, zero lint/type errors and coverage at least 90%.
+Expected: zero failures, zero lint/type errors and coverage at least 90% in each dependency lane.
 
 - [ ] **Step 2: Run a disposable end-to-end classifier experiment**
 
@@ -643,7 +653,7 @@ Expected: only intended source, test and documentation changes; no artifacts, ru
 
 - [ ] **Step 4: Request whole-branch code review**
 
-Review against `docs/superpowers/specs/2026-09-22-classifier-baseline-design.md`, paying special attention to split leakage, unsafe joblib loading, probability/class ordering, CLI side effects and unsupported public claims. Address accepted findings with TDD and repeat Steps 1-3.
+Review against `docs/superpowers/specs/2026-09-22-classifier-baseline-design.md`, paying special attention to split leakage, unsafe joblib loading, artifact/dataset identity, label metadata integrity, probability/class ordering, CLI side effects and unsupported public claims. Address accepted Important/Critical findings with TDD and repeat Steps 1-3; document deferred Minor findings.
 
 - [ ] **Step 5: Commit review fixes if any**
 

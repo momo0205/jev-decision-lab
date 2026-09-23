@@ -46,7 +46,10 @@ def run(
     split: Annotated[Split, typer.Option()],
     output_dir: Annotated[Path, typer.Option()] = Path("runs"),
     threshold: Annotated[float | None, typer.Option(min=0.0, max=1.0)] = None,
-    model: Annotated[Path | None, typer.Option()] = None,
+    model: Annotated[
+        Path | None,
+        typer.Option(help="Trusted local classifier artifact only; untrusted joblib can execute code."),
+    ] = None,
 ) -> None:
     complete_dataset = load_dataset(DATASET)
     validate_dataset(complete_dataset)
@@ -75,6 +78,16 @@ def run(
         classifier = ClassifierProvider.from_artifact(model)
         selected = classifier
         classifier_manifest = classifier.manifest
+        current_hash = dataset_sha256(DATASET)
+        dev_samples = [sample for sample in complete_dataset if sample.split == Split.DEV]
+        if classifier_manifest.dataset_sha256 != current_hash:
+            raise typer.BadParameter("classifier artifact dataset hash does not match current dataset")
+        if set(classifier_manifest.training_sample_ids) != {
+            sample.sample_id for sample in dev_samples
+        } or set(classifier_manifest.training_family_ids) != {
+            sample.family_id for sample in dev_samples
+        }:
+            raise typer.BadParameter("classifier artifact training boundary does not match dev split")
     timestamp = datetime.now(UTC)
     run_id = f"{timestamp.strftime('%Y%m%dT%H%M%SZ')}-{provider}-{split.value}"
     commit = subprocess.run(

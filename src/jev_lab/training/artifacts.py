@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from jev_lab.contracts import RouteLabel
 
@@ -30,6 +30,12 @@ class ClassifierArtifactMetadata(BaseModel):
     random_seed: int
     training_duration_ms: float = Field(ge=0)
     git_commit: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_labels(self) -> ClassifierArtifactMetadata:
+        if len(self.labels) != len(set(self.labels)) or set(self.labels) != set(RouteLabel):
+            raise ValueError("labels must contain every route exactly once")
+        return self
 
 
 class ClassifierTrainingManifest(ClassifierArtifactMetadata):
@@ -93,10 +99,13 @@ def load_verified_pipeline(model_dir: Path) -> tuple[object, ClassifierTrainingM
 
     manifest_path = model_dir / "manifest.json"
     model_path = model_dir / "model.joblib"
+    label_map_path = model_dir / "label-map.json"
     if not manifest_path.is_file():
         raise FileNotFoundError(f"manifest missing: {manifest_path}")
     if not model_path.is_file():
         raise FileNotFoundError(f"model missing: {model_path}")
+    if not label_map_path.is_file():
+        raise FileNotFoundError(f"label map missing: {label_map_path}")
     manifest = ClassifierTrainingManifest.model_validate_json(
         manifest_path.read_text(encoding="utf-8")
     )
@@ -104,4 +113,15 @@ def load_verified_pipeline(model_dir: Path) -> tuple[object, ClassifierTrainingM
         raise ValueError("model hash mismatch")
     if model_path.stat().st_size != manifest.model_size_bytes:
         raise ValueError("model size mismatch")
-    return joblib.load(model_path), manifest
+    expected_labels = [label.value for label in manifest.labels]
+    try:
+        persisted_labels = json.loads(label_map_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError("label map mismatch") from exc
+    if persisted_labels != expected_labels:
+        raise ValueError("label map mismatch")
+    pipeline = joblib.load(model_path)
+    fitted_labels = getattr(pipeline, "classes_", None)
+    if fitted_labels is None or {str(value) for value in fitted_labels} != set(expected_labels):
+        raise ValueError("fitted classes mismatch")
+    return pipeline, manifest

@@ -2,12 +2,15 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("sklearn")
+
 from jev_lab.contracts import RouteLabel, Split
 from jev_lab.dataset import load_dataset
 from jev_lab.training.artifacts import load_verified_pipeline
 from jev_lab.training.classifier import cross_validate_classifier, train_classifier
 
 DATASET = Path("datasets/routing-v1.yaml")
+pytestmark = pytest.mark.classifier
 
 
 def dev_samples():  # type: ignore[no-untyped-def]

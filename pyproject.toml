@@ -33,6 +33,7 @@ testpaths = ["tests"]
 markers = [
   "live_deepseek: requires a real DeepSeek credential and network",
   "live_jev: requires a real Jev credential and network",
+  "classifier: requires optional classifier dependencies",
 ]
 
 [tool.ruff]

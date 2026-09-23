@@ -1,7 +1,10 @@
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
+
+pytest.importorskip("joblib")
 
 from jev_lab.contracts import RouteLabel
 from jev_lab.training.artifacts import (
@@ -9,6 +12,12 @@ from jev_lab.training.artifacts import (
     load_verified_pipeline,
     write_artifact,
 )
+
+pytestmark = pytest.mark.classifier
+
+
+class ArtifactPipeline:
+    classes_: ClassVar[list[str]] = [label.value for label in RouteLabel]
 
 
 def metadata(model_id: str = "model-1") -> ClassifierArtifactMetadata:
@@ -31,7 +40,7 @@ def metadata(model_id: str = "model-1") -> ClassifierArtifactMetadata:
 
 def write_test_artifact(output_dir: Path, model_id: str = "model-1") -> Path:
     return write_artifact(
-        pipeline={"kind": "test-pipeline"},
+        pipeline=ArtifactPipeline(),
         metadata=metadata(model_id),
         output_dir=output_dir,
     )
@@ -42,7 +51,7 @@ def test_verified_load_round_trips_pipeline_and_manifest(tmp_path: Path) -> None
 
     pipeline, manifest = load_verified_pipeline(model_dir)
 
-    assert pipeline == {"kind": "test-pipeline"}
+    assert isinstance(pipeline, ArtifactPipeline)
     assert manifest.model_id == "model-1"
     assert manifest.model_size_bytes == (model_dir / "model.joblib").stat().st_size
     assert manifest.training_split == "dev"
@@ -72,4 +81,12 @@ def test_verified_load_rejects_missing_manifest(tmp_path: Path) -> None:
     (model_dir / "model.joblib").write_bytes(b"model")
 
     with pytest.raises(FileNotFoundError, match="manifest"):
+        load_verified_pipeline(model_dir)
+
+
+def test_verified_load_rejects_changed_label_map(tmp_path: Path) -> None:
+    model_dir = write_test_artifact(tmp_path)
+    (model_dir / "label-map.json").write_text('["search"]')
+
+    with pytest.raises(ValueError, match="label map mismatch"):
         load_verified_pipeline(model_dir)
