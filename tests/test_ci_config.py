@@ -18,6 +18,8 @@ def test_offline_ci_excludes_optional_classifier_tests() -> None:
     classifier_pytest = next(
         step["run"] for step in classifier_steps if "pytest " in step.get("run", "")
     )
+    offline_runs = [step.get("run", "") for step in offline_steps]
+    classifier_runs = [step.get("run", "") for step in classifier_steps]
 
     assert "-e '.[dev]'" in offline_install
     assert "classifier" not in offline_install
@@ -25,6 +27,8 @@ def test_offline_ci_excludes_optional_classifier_tests() -> None:
     assert "not classifier" in offline_pytest
     assert ".coveragerc.offline" in offline_pytest
     assert ".coveragerc.classifier" in classifier_pytest
+    assert not any("mypy src" in command for command in offline_runs)
+    assert any("mypy src" in command for command in classifier_runs)
     assert "classifier: requires optional classifier dependencies" in {
         marker.split(":", maxsplit=1)[0]: marker
         for marker in project["tool"]["pytest"]["ini_options"]["markers"]

@@ -15,7 +15,6 @@ jobs:
           cache: pip
       - run: python -m pip install -e '.[dev]'
       - run: ruff check .
-      - run: mypy src
       - run: pytest -m 'not live_deepseek and not live_jev and not classifier' --cov=jev_lab --cov-config=.coveragerc.offline --cov-fail-under=90
       - run: jev-lab dataset validate
 
@@ -28,6 +27,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: python -m pip install -e '.[dev,classifier]'
+      - run: mypy src
       - run: pytest -m 'not live_deepseek and not live_jev' --cov=jev_lab --cov-config=.coveragerc.classifier --cov-fail-under=90
       - run: |
           jev-lab train --provider tfidf-logreg --split dev --model-id ci-model --output-dir artifacts

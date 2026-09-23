@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -17,7 +18,8 @@ def test_classifier_run_requires_model_without_creating_run(tmp_path: Path) -> N
     )
 
     assert result.exit_code != 0
-    assert "--model is required" in result.output
+    plain_output = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert "--model is required" in plain_output
     assert not output.exists()
 
 

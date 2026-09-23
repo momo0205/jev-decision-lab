@@ -507,13 +507,14 @@ classifier:
         python-version: "3.11"
         cache: pip
     - run: python -m pip install -e '.[dev,classifier]'
+    - run: mypy src
     - run: pytest -m 'not live_deepseek and not live_jev' --cov=jev_lab --cov-config=.coveragerc.classifier --cov-fail-under=90
     - run: |
         jev-lab train --provider tfidf-logreg --split dev --model-id ci-model --output-dir artifacts
         jev-lab run --provider tfidf-logreg --model artifacts/ci-model --split calibration --output-dir runs
 ```
 
-Keep the existing `offline` job on `.[dev]`; do not add secrets or live markers. The offline job excludes optional classifier tests and uses `.coveragerc.offline` to measure the base-install surface without counting modules that cannot be imported without the extra. The classifier job runs the full non-live suite and measures all `jev_lab` modules using `.coveragerc.classifier`.
+Keep the existing `offline` job on `.[dev]`; do not add secrets or live markers. The offline job excludes optional classifier tests and uses `.coveragerc.offline` to measure the base-install surface without counting modules that cannot be imported without the extra. Run `mypy` only in the classifier job because it checks the optional training modules too. The classifier job runs the full non-live suite and measures all `jev_lab` modules using `.coveragerc.classifier`.
 
 - [ ] **Step 4: Document the exact local workflow**
 
