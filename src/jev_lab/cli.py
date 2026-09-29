@@ -13,6 +13,7 @@ from jev_lab.providers.base import DecisionProvider
 from jev_lab.providers.classifier import ClassifierProvider
 from jev_lab.providers.deepseek import DeepSeekProvider
 from jev_lab.providers.jev import JevProvider
+from jev_lab.providers.laya import LayaDependencyError, LayaProvider
 from jev_lab.providers.recorded import RecordedProvider
 from jev_lab.providers.rules import RulesProvider
 from jev_lab.reporting import write_report
@@ -41,7 +42,7 @@ def validate(path: Path = Path("datasets/routing-v1.yaml")) -> None:
 @app.command("run")
 def run(
     provider: Annotated[
-        Literal["rules", "deepseek", "jev", "recorded", "tfidf-logreg"], typer.Option()
+        Literal["rules", "deepseek", "jev", "recorded", "tfidf-logreg", "laya"], typer.Option()
     ],
     split: Annotated[Split, typer.Option()],
     output_dir: Annotated[Path, typer.Option()] = Path("runs"),
@@ -72,6 +73,11 @@ def run(
         selected = RecordedProvider(
             Path("tests/fixtures/recorded/jev-routing.jsonl"), "jev", "synthetic-contract-fixture"
         )
+    elif provider == "laya":
+        try:
+            selected = LayaProvider.from_default_checkpoint()
+        except LayaDependencyError as exc:
+            raise typer.BadParameter(str(exc)) from exc
     else:
         if model is None:
             raise typer.BadParameter("--model is required for tfidf-logreg")

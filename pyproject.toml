@@ -21,6 +21,7 @@ classifier = [
   "scikit-learn>=1.5,<2",
   "joblib>=1.4,<2",
 ]
+laya = ["laya==0.3.21"]
 
 [project.scripts]
 jev-lab = "jev_lab.cli:app"
