@@ -53,6 +53,20 @@ DeepSeek 使用本地环境变量 `DEEPSEEK_API_KEY`。Jev 的访问申请、`TY
 
 训练命令内部使用按 `family_id` 分组的三折交叉验证，只把它作为开发稳定性证据。分类器随后使用全部 `dev` 样本训练；`calibration` 只用于选择拒答阈值。规则、特征、模型、Prompt、Criteria 和阈值全部冻结后，才能运行保留 `test`。开发集交叉验证、校准结果和保留测试结果不得混为同一种证据。
 
+## 开源 Laya 本地基线
+
+Laya 是独立的本地决策模型，不调用 Jev 或 DeepSeek API。可在需要时额外安装其运行环境；默认依赖和离线 CI 不包含 Laya、PyTorch 或 Transformers：
+
+```bash
+.venv/bin/python -m pip install -e '.[dev,laya]'
+.venv/bin/jev-lab run --provider laya --split dev
+.venv/bin/jev-lab run --provider laya --split calibration
+```
+
+实验 provider 固定使用 `convaiinnovations/laya-multilingual`，checkpoint revision 为 `e4e9ddf21a7b1903b7acffd8814ad4307bf63a67`，并把这组来源写入 run manifest。首次运行若本机缓存没有权重，会从 Hugging Face 下载；之后可使用本地缓存。需要断网重跑时，请先确认该 revision 已缓存。
+
+`latency_ms` 记录的是已加载模型后的单样本推理时间，不含首次下载和 checkpoint 加载；它是本机结果，不能直接与远端 API 的端到端延迟比较。Laya 没有按次 API 账单，但本实验不估算硬件折旧和电力成本，因此报告中的美元成本留空，不能解读成总运行成本为零。适配器只消费路线类别概率，不使用 `act_probability` 或 entropy `confidence` 作为自动拒答门槛。与其他候选一样，只在冻结实验协议前使用开发集和校准集；保留测试集继续保持封存。
+
 ## 产物边界
 
 - `runs/`：本地原始运行记录，默认被 Git 忽略；

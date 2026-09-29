@@ -1,10 +1,12 @@
 import json
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 from typer.testing import CliRunner
 
 from jev_lab.cli import app
+from jev_lab.providers.laya import LayaDependencyError
 
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
@@ -92,3 +94,26 @@ def test_missing_deepseek_key_prints_guidance_and_is_not_live(tmp_path: Path, mo
     assert "DEEPSEEK_API_KEY" in lines[0]
     manifest = json.loads((Path(lines[-1]) / "manifest.json").read_text())
     assert manifest["run_mode"] == "offline-development"
+
+
+def test_missing_laya_extra_prints_install_guidance_before_creating_run(
+    tmp_path: Path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    def missing_laya() -> None:
+        raise LayaDependencyError("Laya is optional; install it with `pip install -e '.[laya]'`.")
+
+    monkeypatch.setattr(
+        "jev_lab.cli.LayaProvider",
+        SimpleNamespace(from_default_checkpoint=missing_laya),
+        raising=False,
+    )
+    output = tmp_path / "runs"
+    result = CliRunner().invoke(
+        app,
+        ["run", "--provider", "laya", "--split", "calibration", "--output-dir", str(output)],
+    )
+
+    plain_output = ANSI_ESCAPE.sub("", result.output)
+    assert result.exit_code != 0
+    assert "[laya]" in plain_output
+    assert not output.exists()

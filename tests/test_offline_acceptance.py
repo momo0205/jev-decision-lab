@@ -49,16 +49,16 @@ def test_complete_rules_workflow_without_keys_or_network(tmp_path: Path) -> None
     assert "input" not in json.loads(public.read_text())
 
 
-def test_importing_cli_does_not_eagerly_import_sklearn() -> None:
+def test_importing_cli_does_not_eagerly_import_optional_models() -> None:
     completed = subprocess.run(
         [
             sys.executable,
             "-c",
-            "import sys; import jev_lab.cli; print('sklearn' in sys.modules)",
+            "import sys; import jev_lab.cli; print('sklearn' in sys.modules, 'laya' in sys.modules, 'torch' in sys.modules)",
         ],
         check=True,
         capture_output=True,
         text=True,
     )
 
-    assert completed.stdout.strip() == "False"
+    assert completed.stdout.strip() == "False False False"
