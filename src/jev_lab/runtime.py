@@ -14,7 +14,7 @@ _PACKAGE_ALLOWLIST: Final[tuple[_PackageName, ...]] = ("laya", "torch", "transfo
 _SAFE_MACHINE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _SAFE_PACKAGE_VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.!+_-]{0,79}$")
 _SAFE_DEVICE = re.compile(
-    r"^(cpu|mps|cuda(:[0-9]+)?|xpu(:[0-9]+)?|npu(:[0-9]+)?|hpu(:[0-9]+)?|privateuseone(:[0-9]+)?)$"
+    r"^(cpu(:[0-9]+)?|mps(:[0-9]+)?|cuda(:[0-9]+)?|xpu(:[0-9]+)?|npu(:[0-9]+)?|hpu(:[0-9]+)?|privateuseone(:[0-9]+)?)$"
 )
 
 
@@ -85,7 +85,7 @@ def collect_runtime_provenance(
                 version = metadata.version(distribution)
             except metadata.PackageNotFoundError:
                 continue
-            if _SAFE_PACKAGE_VERSION.fullmatch(version):
+            if isinstance(version, str) and _SAFE_PACKAGE_VERSION.fullmatch(version):
                 package_versions[distribution] = version
         inference_device = _device_identifier(inference_agent)
 

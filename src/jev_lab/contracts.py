@@ -105,7 +105,7 @@ class RuntimeProvenance(BaseModel):
     ] = Field(default_factory=dict)
     inference_device: str | None = Field(
         default=None,
-        pattern=r"^(cpu|mps|cuda(:[0-9]+)?|xpu(:[0-9]+)?|npu(:[0-9]+)?|hpu(:[0-9]+)?|privateuseone(:[0-9]+)?)$",
+        pattern=r"^(cpu(:[0-9]+)?|mps(:[0-9]+)?|cuda(:[0-9]+)?|xpu(:[0-9]+)?|npu(:[0-9]+)?|hpu(:[0-9]+)?|privateuseone(:[0-9]+)?)$",
     )
 
 
