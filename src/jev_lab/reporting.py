@@ -13,6 +13,29 @@ def _display(value: object) -> str:
     return "not available" if value is None else str(value)
 
 
+def _runtime_lines(manifest: RunManifest) -> str:
+    runtime = manifest.runtime
+    if runtime is None:
+        return """## Runtime provenance
+
+- Python version: not available
+- OS family: not available
+- Machine architecture: not available
+- Package versions: not available
+- Inference device: not available"""
+
+    packages = ", ".join(
+        f"{name}={version}" for name, version in sorted(runtime.package_versions.items())
+    )
+    return f"""## Runtime provenance
+
+- Python version: {runtime.python_version}
+- OS family: {runtime.system}
+- Machine architecture: {runtime.machine}
+- Package versions: {_display(packages)}
+- Inference device: {_display(runtime.inference_device)}"""
+
+
 def write_report(run_dir: Path, report_dir: Path, public_dir: Path) -> tuple[Path, Path]:
     manifest = RunManifest.model_validate_json((run_dir / "manifest.json").read_text())
     metrics = EvaluationMetrics.model_validate_json((run_dir / "metrics.json").read_text())
@@ -29,6 +52,8 @@ def write_report(run_dir: Path, report_dir: Path, public_dir: Path) -> tuple[Pat
 - model: {manifest.model_version}
 - run mode: {manifest.run_mode.value}
 - git commit: {manifest.git_commit}
+
+{_runtime_lines(manifest)}
 
 ## Dataset and split
 
@@ -83,6 +108,9 @@ This report describes `{manifest.run_mode.value}` evidence only. It does not aut
         "threshold": manifest.threshold,
         "metrics": metrics.model_dump(mode="json"),
         "failure_categories": dict(failures),
+        "runtime_provenance": (
+            manifest.runtime.model_dump(mode="json") if manifest.runtime is not None else None
+        ),
         "local_model_provenance": {
             "model_artifact_sha256": manifest.model_artifact_sha256,
             "training_sample_count": manifest.training_sample_count,

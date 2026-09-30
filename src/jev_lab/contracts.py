@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from datetime import datetime
 from enum import Enum
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -89,6 +89,26 @@ class DecisionResult(BaseModel):
         return self
 
 
+class RuntimeProvenance(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    python_version: str = Field(
+        min_length=1,
+        max_length=32,
+        pattern=r"^[0-9]+\.[0-9]+(\.[0-9]+)?([A-Za-z0-9.+_-]{0,24})$",
+    )
+    system: Literal["Darwin", "Linux", "Windows", "Other"]
+    machine: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+    package_versions: dict[
+        Literal["laya", "torch", "transformers"],
+        Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9.!+_-]{0,79}$")],
+    ] = Field(default_factory=dict)
+    inference_device: str | None = Field(
+        default=None,
+        pattern=r"^(cpu|mps|cuda(:[0-9]+)?|xpu(:[0-9]+)?|npu(:[0-9]+)?|hpu(:[0-9]+)?|privateuseone(:[0-9]+)?)$",
+    )
+
+
 class RunManifest(BaseModel):
     run_id: str = Field(min_length=1)
     provider: str = Field(min_length=1)
@@ -104,3 +124,4 @@ class RunManifest(BaseModel):
     training_duration_ms: float | None = Field(default=None, ge=0)
     model_size_bytes: int | None = Field(default=None, ge=1)
     created_at: datetime
+    runtime: RuntimeProvenance | None = None
