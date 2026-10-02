@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 from pydantic import ValidationError
 
@@ -6,9 +8,28 @@ from jev_lab.contracts import (
     RequestStatus,
     RouteLabel,
     RoutingSample,
+    RunManifest,
     RunMode,
     Split,
 )
+
+
+def test_run_manifest_accepts_legacy_json_without_runtime() -> None:
+    manifest = RunManifest.model_validate(
+        {
+            "run_id": "legacy-run",
+            "provider": "laya",
+            "model_version": "laya@revision",
+            "run_mode": "offline-development",
+            "split": "calibration",
+            "dataset_path": "datasets/routing-v1.yaml",
+            "dataset_sha256": "dataset-hash",
+            "git_commit": "commit",
+            "created_at": datetime(2026, 9, 30, tzinfo=UTC).isoformat(),
+        }
+    )
+
+    assert manifest.runtime is None
 
 
 def test_routing_sample_rejects_expected_label_outside_acceptable() -> None:

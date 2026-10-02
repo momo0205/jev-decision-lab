@@ -18,6 +18,7 @@ from jev_lab.providers.recorded import RecordedProvider
 from jev_lab.providers.rules import RulesProvider
 from jev_lab.reporting import write_report
 from jev_lab.runner import run_experiment
+from jev_lab.runtime import collect_runtime_provenance
 from jev_lab.training.artifacts import ClassifierTrainingManifest
 
 DATASET = Path("datasets/routing-v1.yaml")
@@ -49,7 +50,9 @@ def run(
     threshold: Annotated[float | None, typer.Option(min=0.0, max=1.0)] = None,
     model: Annotated[
         Path | None,
-        typer.Option(help="Trusted local classifier artifact only; untrusted joblib can execute code."),
+        typer.Option(
+            help="Trusted local classifier artifact only; untrusted joblib can execute code."
+        ),
     ] = None,
 ) -> None:
     complete_dataset = load_dataset(DATASET)
@@ -87,18 +90,23 @@ def run(
         current_hash = dataset_sha256(DATASET)
         dev_samples = [sample for sample in complete_dataset if sample.split == Split.DEV]
         if classifier_manifest.dataset_sha256 != current_hash:
-            raise typer.BadParameter("classifier artifact dataset hash does not match current dataset")
+            raise typer.BadParameter(
+                "classifier artifact dataset hash does not match current dataset"
+            )
         if set(classifier_manifest.training_sample_ids) != {
             sample.sample_id for sample in dev_samples
         } or set(classifier_manifest.training_family_ids) != {
             sample.family_id for sample in dev_samples
         }:
-            raise typer.BadParameter("classifier artifact training boundary does not match dev split")
+            raise typer.BadParameter(
+                "classifier artifact training boundary does not match dev split"
+            )
     timestamp = datetime.now(UTC)
     run_id = f"{timestamp.strftime('%Y%m%dT%H%M%SZ')}-{provider}-{split.value}"
     commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True
     ).stdout.strip()
+    inference_agent = getattr(selected, "agent", None) if provider == "laya" else None
     manifest = RunManifest(
         run_id=run_id,
         provider=selected.name,
@@ -118,6 +126,7 @@ def run(
         ),
         model_size_bytes=(classifier_manifest.model_size_bytes if classifier_manifest else None),
         created_at=timestamp,
+        runtime=collect_runtime_provenance(provider, inference_agent=inference_agent),
     )
     artifact = run_experiment(selected, samples, output_dir, manifest)
     typer.echo(str(artifact.parent))

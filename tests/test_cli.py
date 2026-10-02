@@ -5,10 +5,96 @@ from types import SimpleNamespace
 
 from typer.testing import CliRunner
 
+import jev_lab.cli as cli_module
 from jev_lab.cli import app
+from jev_lab.contracts import RouteLabel, RoutingSample, Split
 from jev_lab.providers.laya import LayaDependencyError
 
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def test_run_records_runtime_provenance_without_loading_repository_dataset(
+    tmp_path: Path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    sample = RoutingSample(
+        sample_id="synthetic-dev-1",
+        family_id="synthetic-family-1",
+        input="搜索公开资料",
+        expected=RouteLabel.SEARCH,
+        acceptable=[RouteLabel.SEARCH],
+        risk="low",
+        difficulty="clear",
+        rationale="仅供 CLI 集成测试使用",
+        source="synthetic",
+        split=Split.DEV,
+    )
+
+    class FakeLayaAgent:
+        device = "mps"
+
+        def predict(
+            self, state: str, questions: dict[str, dict[str, object]], *, lang: str
+        ) -> dict[str, object]:
+            return {
+                "answers": {
+                    "route": {
+                        "type": "choice",
+                        "choice": "search",
+                        "probabilities": {
+                            "search": 0.7,
+                            "code": 0.1,
+                            "database": 0.1,
+                            "human_review": 0.1,
+                        },
+                    }
+                }
+            }
+
+    agent = FakeLayaAgent()
+    monkeypatch.setattr(cli_module, "load_dataset", lambda _: [sample])
+    monkeypatch.setattr(cli_module, "validate_dataset", lambda _: None)
+    monkeypatch.setattr(cli_module, "dataset_sha256", lambda _: "synthetic-dataset-hash")
+    monkeypatch.setattr(
+        cli_module.LayaProvider,
+        "from_default_checkpoint",
+        lambda: cli_module.LayaProvider(agent),
+    )
+    passed_agents: list[object | None] = []
+    runtime_payload = {
+        "python_version": "3.12.4",
+        "system": "Darwin",
+        "machine": "arm64",
+        "package_versions": {"laya": "0.3.21"},
+        "inference_device": "mps",
+    }
+
+    def collect_runtime(
+        provider: str, *, inference_agent: object | None = None
+    ) -> dict[str, object]:
+        assert provider == "laya"
+        passed_agents.append(inference_agent)
+        return runtime_payload
+
+    monkeypatch.setattr(cli_module, "collect_runtime_provenance", collect_runtime, raising=False)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            "--provider",
+            "laya",
+            "--split",
+            "dev",
+            "--output-dir",
+            str(tmp_path / "runs"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    run_dir = Path(result.stdout.strip())
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    assert passed_agents == [agent]
+    assert manifest["runtime"] == runtime_payload
 
 
 def test_root_help_is_available_offline() -> None:
